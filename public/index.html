@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/icons/icon-192x192.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Next-generation AI Workstation PWA for on-device AI inference powered by LiteRT.js" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="background-color" content="#0f0f1a" />
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
+  
+  <!-- Apple Touch Icon -->
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="EdgeVision AI Studio" />
+  
+  <!-- Windows Tile -->
+  <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+  <meta name="msapplication-TileColor" content="#1a1a2e" />
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="EdgeVision AI Studio" />
+  <meta property="og:description" content="Next-generation AI Workstation PWA for on-device AI inference" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/screenshots/desktop-dark.png" />
+  <meta property="og:url" content="https://github.com/abdulraheemnohri/EdgeVision-AI-Studio" />
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="EdgeVision AI Studio" />
+  <meta name="twitter:description" content="Next-generation AI Workstation PWA for on-device AI inference" />
+  <meta name="twitter:image" content="/screenshots/desktop-dark.png" />
+  
+  <!-- Security -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; wasm-unsafe-eval" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="X-Frame-Options" content="DENY" />
+  <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+  
+  <!-- Preload -->
+  <link rel="preload" href="/src/main.tsx" as="script" />
+  
+  <title>EdgeVision AI Studio</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
