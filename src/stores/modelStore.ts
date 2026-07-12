@@ -1,210 +1,366 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ModelMetadata, ModelType } from '../types';
+import { ModelMetadata, ModelFilter, ModelStats } from '../types';
 
 interface ModelState {
   models: ModelMetadata[];
+  folders: string[];
+  filter: ModelFilter;
+  selectedModels: string[];
   isLoading: boolean;
   error: string | null;
-  folders: string[];
-  currentFolder: string | null;
-  searchQuery: string;
-  filterType: ModelType | 'all';
-  showFavorites: boolean;
-  selectedModels: string[];
-  
-  loadModels: () => Promise<void>;
+}
+
+interface ModelActions {
+  // Model CRUD operations
   addModel: (model: ModelMetadata) => Promise<void>;
   removeModel: (modelId: string) => Promise<void>;
   updateModel: (modelId: string, updates: Partial<ModelMetadata>) => Promise<void>;
   duplicateModel: (modelId: string) => Promise<void>;
-  createFolder: (name: string) => void;
-  setCurrentFolder: (folder: string | null) => void;
+  
+  // Folder operations
+  createFolder: (folderName: string) => void;
+  deleteFolder: (folderName: string) => void;
+  renameFolder: (oldName: string, newName: string) => void;
+  
+  // Filter operations
   setSearchQuery: (query: string) => void;
-  setFilterType: (type: ModelType | 'all') => void;
+  setFilterType: (type: string) => void;
   setShowFavorites: (show: boolean) => void;
-  setSelectedModels: (ids: string[]) => void;
-  toggleModelSelection: (id: string) => void;
-  getModelById: (id: string) => ModelMetadata | undefined;
-  getModelsByFolder: (folder: string) => ModelMetadata[];
-  getFavoriteModels: () => ModelMetadata[];
-  getModelsByType: (type: ModelType) => ModelMetadata[];
+  setCurrentFolder: (folder: string | null) => void;
+  
+  // Selection operations
+  toggleModelSelection: (modelId: string) => void;
+  selectAllModels: () => void;
+  clearSelection: () => void;
+  
+  // Utility functions
+  getFilteredModels: () => ModelMetadata[];
   getTotalStorage: () => number;
+  getStats: () => ModelStats;
+  getModelById: (modelId: string) => ModelMetadata | undefined;
+  
+  // Reset
   reset: () => void;
 }
 
+type ModelStore = ModelState & ModelActions;
+
+const initialState: ModelState = {
+  models: [],
+  folders: [],
+  filter: {
+    searchQuery: '',
+    filterType: 'all',
+    showFavorites: false,
+    currentFolder: null,
+  },
+  selectedModels: [],
+  isLoading: false,
+  error: null,
+};
+
+// Sample models for development
 const sampleModels: ModelMetadata[] = [
   {
-    id: 'yolo-v8-nano',
-    name: 'YOLOv8 Nano',
-    description: 'Ultra-lightweight object detection model for edge devices',
+    id: 'mobilenet-v2',
+    name: 'MobileNet V2',
+    description: 'Lightweight image classification model optimized for mobile devices',
+    author: 'TensorFlow',
+    version: '1.0',
+    modelType: 'image_classification',
+    inputShape: { dimensions: [1, 224, 224, 3], size: 224 * 224 * 3 },
+    outputShape: { dimensions: [1, 1000], size: 1000 },
+    inputTensorCount: 1,
+    outputTensorCount: 1,
+    parameters: 3504872,
+    quantization: 'float32',
+    size: 14 * 1024 * 1024, // 14MB
+    filePath: '/models/mobilenet_v2_1.0_224.tflite',
+    dateImported: new Date(),
+    isFavorite: true,
+    folder: null,
+    supportedBackends: ['cpu', 'webgpu', 'wasm'],
+    labels: ['classification', 'vision', 'mobile'],
+  },
+  {
+    id: 'yolo-v8',
+    name: 'YOLO v8',
+    description: 'Real-time object detection model with high accuracy',
     author: 'Ultralytics',
     version: '8.0',
     modelType: 'object_detection',
-    inputShape: { dimensions: [1, 3, 640, 640], size: 3 * 640 * 640 },
+    inputShape: { dimensions: [1, 640, 640, 3], size: 640 * 640 * 3 },
     outputShape: { dimensions: [1, 84, 8400], size: 84 * 8400 },
     inputTensorCount: 1,
     outputTensorCount: 1,
-    parameters: 3200000,
+    parameters: 6820961,
     quantization: 'int8',
-    size: 2800000,
-    filePath: '/models/yolo-v8-nano.tflite',
-    labels: ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat'],
-    dateImported: new Date(),
+    size: 25 * 1024 * 1024, // 25MB
+    filePath: '/models/yolov8n_int8.tflite',
+    dateImported: new Date(Date.now() - 86400000), // Yesterday
     isFavorite: true,
-    folder: 'Object Detection',
-    supportedBackends: ['cpu', 'webgpu', 'wasm'],
+    folder: null,
+    supportedBackends: ['cpu', 'webgpu', 'webnn'],
+    labels: ['detection', 'vision', 'real-time'],
+  },
+  {
+    id: 'ocr-model',
+    name: 'OCR Model',
+    description: 'Optical Character Recognition model for text detection and recognition',
+    author: 'Google',
+    version: '1.0',
+    modelType: 'ocr',
+    inputShape: { dimensions: [1, 320, 320, 3], size: 320 * 320 * 3 },
+    outputShape: { dimensions: [1, 100, 4], size: 100 * 4 },
+    inputTensorCount: 1,
+    outputTensorCount: 1,
+    parameters: 2475961,
+    quantization: 'int8',
+    size: 8 * 1024 * 1024, // 8MB
+    filePath: '/models/ocr_int8.tflite',
+    dateImported: new Date(Date.now() - 172800000), // 2 days ago
+    isFavorite: false,
+    folder: 'Text',
+    supportedBackends: ['cpu', 'webgpu'],
+    labels: ['ocr', 'text', 'recognition'],
   },
 ];
 
-export const useModelStore = create<ModelState>()(
+export const useModelStore = create<ModelStore>()(
   persist(
     (set, get) => ({
+      ...initialState,
       models: sampleModels,
-      isLoading: false,
-      error: null,
-      folders: ['Object Detection', 'Image Classification', 'Face Analysis', 'Image Processing'],
-      currentFolder: null,
-      searchQuery: '',
-      filterType: 'all',
-      showFavorites: false,
-      selectedModels: [],
-      
-      loadModels: async () => {
-        set({ isLoading: true, error: null });
-        await new Promise(resolve => setTimeout(resolve, 300));
-        set({ isLoading: false });
-      },
-      
+
       addModel: async (model: ModelMetadata) => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
-          const models = [...get().models, model];
+          // Check if folder exists
           if (model.folder && !get().folders.includes(model.folder)) {
-            get().createFolder(model.folder);
+            set({ folders: [...get().folders, model.folder] });
           }
-          set({ models, isLoading: false });
-        } catch (error) {
-          set({ isLoading: false, error: `Failed to add model: ${error}` });
-        }
-      },
-      
-      removeModel: async (modelId: string) => {
-        set({ isLoading: true });
-        try {
-          const models = get().models.filter(m => m.id !== modelId);
-          set({
-            models,
-            isLoading: false,
-            selectedModels: get().selectedModels.filter(id => id !== modelId),
+          
+          set({ 
+            models: [...get().models, model],
+            isLoading: false 
           });
         } catch (error) {
-          set({ isLoading: false, error: `Failed to remove model: ${error}` });
+          set({ 
+            error: `Failed to add model: ${error}`, 
+            isLoading: false 
+          });
         }
       },
-      
-      updateModel: async (modelId: string, updates: Partial<ModelMetadata>) => {
-        set({ isLoading: true });
+
+      removeModel: async (modelId: string) => {
+        set({ isLoading: true, error: null });
         try {
-          const models = get().models.map(m =>
-            m.id === modelId ? { ...m, ...updates } : m
+          const models = get().models.filter(m => m.id !== modelId);
+          set({ models, isLoading: false });
+        } catch (error) {
+          set({ 
+            error: `Failed to remove model: ${error}`, 
+            isLoading: false 
+          });
+        }
+      },
+
+      updateModel: async (modelId: string, updates: Partial<ModelMetadata>) => {
+        set({ isLoading: true, error: null });
+        try {
+          const models = get().models.map(model =>
+            model.id === modelId ? { ...model, ...updates } : model
           );
           set({ models, isLoading: false });
         } catch (error) {
-          set({ isLoading: false, error: `Failed to update model: ${error}` });
+          set({ 
+            error: `Failed to update model: ${error}`, 
+            isLoading: false 
+          });
         }
       },
-      
+
       duplicateModel: async (modelId: string) => {
-        const model = get().getModelById(modelId);
+        const model = get().models.find(m => m.id === modelId);
         if (!model) return;
-        set({ isLoading: true });
+        
+        set({ isLoading: true, error: null });
         try {
           const duplicatedModel: ModelMetadata = {
             ...model,
             id: `${model.id}-copy-${Date.now()}`,
-            name: `${model.name} (Copy), 
-            filePath: model.filePath.replace('.tflite', `-copy-${Date.now()}.tflite`),
+            name: `${model.name} (Copy)`,
             dateImported: new Date(),
             isFavorite: false,
           };
-          const models = [...get().models, duplicatedModel];
-          set({ models, isLoading: false });
+          
+          await get().addModel(duplicatedModel);
+          set({ isLoading: false });
         } catch (error) {
-          set({ isLoading: false, error: `Failed to duplicate model: ${error}` });
+          set({ 
+            error: `Failed to duplicate model: ${error}`, 
+            isLoading: false 
+          });
         }
       },
-      
-      createFolder: (name: string) => {
-        if (!get().folders.includes(name)) {
-          set({ folders: [...get().folders, name] });
+
+      createFolder: (folderName: string) => {
+        if (!get().folders.includes(folderName)) {
+          set({ folders: [...get().folders, folderName] });
         }
       },
-      
-      setCurrentFolder: (folder: string | null) => {
-        set({ currentFolder: folder });
+
+      deleteFolder: (folderName: string) => {
+        // Move models out of folder first
+        const models = get().models.map(model =>
+          model.folder === folderName ? { ...model, folder: null } : model
+        );
+        
+        const folders = get().folders.filter(f => f !== folderName);
+        set({ models, folders });
       },
-      
+
+      renameFolder: (oldName: string, newName: string) => {
+        if (oldName === newName) return;
+        
+        const models = get().models.map(model =>
+          model.folder === oldName ? { ...model, folder: newName } : model
+        );
+        
+        const folders = get().folders.map(folder =>
+          folder === oldName ? newName : folder
+        );
+        
+        set({ models, folders });
+      },
+
       setSearchQuery: (query: string) => {
-        set({ searchQuery: query });
+        set({ 
+          filter: { 
+            ...get().filter, 
+            searchQuery: query 
+          } 
+        });
       },
-      
-      setFilterType: (type: ModelType | 'all') => {
-        set({ filterType: type });
+
+      setFilterType: (type: string) => {
+        set({ 
+          filter: { 
+            ...get().filter, 
+            filterType: type 
+          } 
+        });
       },
-      
+
       setShowFavorites: (show: boolean) => {
-        set({ showFavorites: show });
+        set({ 
+          filter: { 
+            ...get().filter, 
+            showFavorites: show 
+          } 
+        });
       },
-      
-      setSelectedModels: (ids: string[]) => {
-        set({ selectedModels: ids });
+
+      setCurrentFolder: (folder: string | null) => {
+        set({ 
+          filter: { 
+            ...get().filter, 
+            currentFolder: folder 
+          } 
+        });
       },
-      
-      toggleModelSelection: (id: string) => {
+
+      toggleModelSelection: (modelId: string) => {
         const selectedModels = get().selectedModels;
-        const newSelection = selectedModels.includes(id)
-          ? selectedModels.filter(mid => mid !== id)
-          : [...selectedModels, id];
+        const newSelection = selectedModels.includes(modelId)
+          ? selectedModels.filter(id => id !== modelId)
+          : [...selectedModels, modelId];
         set({ selectedModels: newSelection });
       },
-      
-      getModelById: (id: string) => {
-        return get().models.find(m => m.id === id);
+
+      selectAllModels: () => {
+        const filteredModels = get().getFilteredModels();
+        const modelIds = filteredModels.map(model => model.id);
+        set({ selectedModels: modelIds });
       },
-      
-      getModelsByFolder: (folder: string) => {
-        return get().models.filter(m => m.folder === folder);
+
+      clearSelection: () => {
+        set({ selectedModels: [] });
       },
-      
-      getFavoriteModels: () => {
-        return get().models.filter(m => m.isFavorite);
-      },
-      
-      getModelsByType: (type: ModelType) => {
-        return get().models.filter(m => m.modelType === type);
-      },
-      
-      getTotalStorage: () => {
-        return get().models.reduce((total, model) => total + model.size, 0);
-      },
-      
-      reset: () => {
-        set({
-          models: [],
-          isLoading: false,
-          error: null,
-          folders: [],
-          currentFolder: null,
-          searchQuery: '',
-          filterType: 'all',
-          showFavorites: false,
-          selectedModels: [],
+
+      getFilteredModels: () => {
+        const { models, filter } = get();
+        const { searchQuery, filterType, showFavorites, currentFolder } = filter;
+        
+        return models.filter(model => {
+          // Folder filter
+          if (currentFolder && model.folder !== currentFolder) return false;
+          
+          // Favorites filter
+          if (showFavorites && !model.isFavorite) return false;
+          
+          // Type filter
+          if (filterType !== 'all' && model.modelType !== filterType) return false;
+          
+          // Search filter
+          if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            const matchesName = model.name.toLowerCase().includes(query);
+            const matchesDescription = model.description.toLowerCase().includes(query);
+            const matchesAuthor = model.author.toLowerCase().includes(query);
+            const matchesLabels = model.labels?.some(l => l.toLowerCase().includes(query));
+            
+            if (!matchesName && !matchesDescription && !matchesAuthor && !matchesLabels) {
+              return false;
+            }
+          }
+          
+          return true;
         });
+      },
+
+      getTotalStorage: () => {
+        const { models } = get();
+        return models.reduce((total, model) => total + model.size, 0);
+      },
+
+      getStats: () => {
+        const { models } = get();
+        const stats: ModelStats = {
+          totalModels: models.length,
+          totalStorage: get().getTotalStorage(),
+          byType: {} as Record<string, number>,
+          byQuantization: {} as Record<string, number>,
+          favoriteCount: 0,
+        };
+        
+        models.forEach(model => {
+          // Count by type
+          stats.byType[model.modelType] = (stats.byType[model.modelType] || 0) + 1;
+          
+          // Count by quantization
+          stats.byQuantization[model.quantization] = (stats.byQuantization[model.quantization] || 0) + 1;
+          
+          // Count favorites
+          if (model.isFavorite) {
+            stats.favoriteCount++;
+          }
+        });
+        
+        return stats;
+      },
+
+      getModelById: (modelId: string) => {
+        return get().models.find(model => model.id === modelId);
+      },
+
+      reset: () => {
+        set(initialState);
       },
     }),
     {
-      name: 'edgevision-model-storage',
+      name: 'model-store',
       partialize: (state) => ({
         models: state.models,
         folders: state.folders,
@@ -212,24 +368,3 @@ export const useModelStore = create<ModelState>()(
     }
   )
 );
-
-export const useModels = () => useModelStore(state => state.models);
-export const useFilteredModels = () => {
-  const { models, searchQuery, filterType, showFavorites, currentFolder } = useModelStore();
-  return models.filter(model => {
-    if (currentFolder && model.folder !== currentFolder) return false;
-    if (showFavorites && !model.isFavorite) return false;
-    if (filterType !== 'all' && model.modelType !== filterType) return false;
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesName = model.name.toLowerCase().includes(query);
-      const matchesDescription = model.description.toLowerCase().includes(query);
-      const matchesAuthor = model.author.toLowerCase().includes(query);
-      const matchesLabels = model.labels?.some(l => l.toLowerCase().includes(query));
-      if (!matchesName && !matchesDescription && !matchesAuthor && !matchesLabels) {
-        return false;
-      }
-    }
-    return true;
-  });
-};

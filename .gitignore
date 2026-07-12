@@ -6,7 +6,10 @@ node_modules/
 # Build outputs
 dist/
 build/
-.cache/
+*.tsbuildinfo
+
+# Testing
+coverage/
 
 # IDE
 .idea/
@@ -26,41 +29,55 @@ Thumbs.db
 .env.test.local
 .env.production.local
 
-# Testing
-coverage/
-.nyc_output/
-
 # Logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 
-# Local storage
-localStorage/
+# Cache
+.cache/
+.pnpm-debug.log*
 
 # Temporary files
 tmp/
 temp/
+*.tmp
 
-# IndexedDB
-*.db
-*.sqlite
+# Model files (keep these in public/models/)
+*.tflite
+*.h5
+*.pb
+*.onnx
 
-# WASM files (if generated)
+# WASM files (keep these in public/wasm/)
 *.wasm
 
-# Model files (optional - can be large)
-# Uncomment to exclude model files from version control
-# public/models/*.tflite
-# public/wasm/*.wasm
+# Local storage
+localStorage.json
 
 # PWA cache
-sw.js
 workbox-*.js
-precache-manifest.*.js
+workbox-*.js.map
 
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Vite
+vite.config.ts.cache
+
+# Git
+.git/
+.gitignore
+
+# EdgeVision specific
+/public/models/*
+!/public/models/.gitkeep
+/public/wasm/*
+!/public/wasm/.gitkeep
+/public/icons/*
+!/public/icons/.gitkeep
+/public/screenshots/*
+!/public/screenshots/.gitkeep

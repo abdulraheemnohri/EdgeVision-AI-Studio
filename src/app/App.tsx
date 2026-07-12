@@ -1,139 +1,288 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTheme } from '../components/ui/ThemeProvider';
 import { Sidebar } from '../components/layout/Sidebar';
 import { TopNav } from '../components/layout/TopNav';
-import { Dashboard } from '../pages/Dashboard';
-import { ModelManager } from '../pages/ModelManager';
-import { AIPlayground } from '../pages/AIPlayground';
-import { NotFound } from '../pages/NotFound';
-import { TooltipProvider } from '../components/ui/Tooltip';
+import { getAIRuntime } from '../ai';
 
-// Initialize AI runtime
-import { initAIRuntime } from '../ai/runtime/litertRuntime';
+// Import all pages
+import {
+  Dashboard,
+  ModelManager,
+  AIPlayground,
+  ObjectDetection,
+  ImageClassification,
+  OCR,
+  FaceAnalysis,
+  PoseDetection,
+  ImageSegmentation,
+  DepthEstimation,
+  SuperResolution,
+  AudioAI,
+  SemanticSearch,
+  AIChat,
+  BenchmarkCenter,
+  DatasetExplorer,
+  PipelineBuilder,
+  DeveloperStudio,
+  BatchProcessing,
+  StorageManager,
+  Settings,
+  ModelDetail,
+  NotFound
+} from '../pages';
 
-// Placeholder pages for future development
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="p-4 md:p-6 lg:p-8">
-      <h1 className="text-2xl font-bold mb-4">{title}</h1>
-      <p className="text-muted-foreground">This page is under development.</p>
-    </div>
-  );
-}
+// Animation variants for page transitions
+const pageVariants = {
+  initial: { opacity: 0, x: -20 },
+  animate: { 
+    opacity: 1, 
+    x: 0,
+    transition: { 
+      duration: 0.3, 
+      ease: 'easeOut' 
+    } 
+  },
+  exit: { 
+    opacity: 0, 
+    x: 20,
+    transition: { 
+      duration: 0.2, 
+      ease: 'easeIn' 
+    } 
+  }
+};
 
-function App() {
+// Page wrapper component for animations
+const PageWrapper = ({ children }: { children: React.ReactNode }) => (
+  <motion.div
+    variants={pageVariants}
+    initial="initial"
+    animate="animate"
+    exit="exit"
+    className="min-h-screen"
+  >
+    {children}
+  </motion.div>
+);
+
+export function App() {
   const location = useLocation();
   const { theme } = useTheme();
-  const { initBackend } = useAIStore();
-  const { loadModels } = useModelStore();
+  const [runtimeStatus, setRuntimeStatus] = useState({
+    isInitialized: false,
+    availableAccelerators: [] as string[],
+    error: null as string | null
+  });
 
-  // Initialize AI runtime on app mount
+  // Check runtime status on app load
   useEffect(() => {
-    const initialize = async () => {
+    const checkRuntimeStatus = async () => {
       try {
-        await initAIRuntime();
-        await initBackend();
-        await loadModels();
-        console.log('✅ EdgeVision AI Studio initialized successfully');
+        const runtime = getAIRuntime();
+        const isInitialized = runtime.getInitialized();
+        
+        if (isInitialized) {
+          const accelerators = await runtime.getAvailableAccelerators();
+          setRuntimeStatus({
+            isInitialized: true,
+            availableAccelerators: accelerators,
+            error: null
+          });
+        } else {
+          // Runtime is still initializing
+          setRuntimeStatus({
+            isInitialized: false,
+            availableAccelerators: [],
+            error: null
+          });
+        }
       } catch (error) {
-        console.error('❌ Failed to initialize EdgeVision AI Studio:', error);
+        setRuntimeStatus({
+          isInitialized: false,
+          availableAccelerators: [],
+          error: `Runtime error: ${error}`
+        });
       }
     };
+
+    checkRuntimeStatus();
     
-    initialize();
-  }, [initBackend, loadModels]);
+    // Set up interval to check status periodically
+    const interval = setInterval(checkRuntimeStatus, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Apply theme class to body
   useEffect(() => {
-    document.body.classList.remove('light', 'dark');
-    document.body.classList.add(theme);
+    document.body.className = `theme-${theme}`;
   }, [theme]);
 
-  // Page transition animations
-  const pageVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: { 
-      opacity: 1, 
-      y: 0,
-      transition: { duration: 0.3, ease: 'easeOut' }
-    },
-    exit: { 
-      opacity: 0, 
-      y: -20,
-      transition: { duration: 0.2 }
+  // Show runtime error notification if there's an error
+  useEffect(() => {
+    if (runtimeStatus.error) {
+      console.error('AI Runtime Error:', runtimeStatus.error);
     }
-  };
+  }, [runtimeStatus.error]);
 
   return (
-    <TooltipProvider>
-      <div className="flex h-screen w-full overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar />
+    <div className="min-h-screen bg-background">
+      <div className="flex">
+        {/* Sidebar - Hidden on mobile, visible on desktop */}
+        <div className="hidden lg:block lg:w-[280px] xl:w-[300px] flex-shrink-0">
+          <Sidebar runtimeStatus={runtimeStatus} />
+        </div>
         
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* Top Navigation */}
-          <TopNav />
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col min-h-screen">
+          {/* Top navigation */}
+          <TopNav runtimeStatus={runtimeStatus} />
           
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto">
+          {/* Page content with animations */}
+          <main className="flex-1 p-4 md:p-6 lg:p-8">
             <AnimatePresence mode="wait">
-              <motion.div
-                key={location.pathname}
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="min-h-full"
-              >
-                <Routes>
-                  {/* Dashboard */}
-                  <Route path="/" element={<Dashboard />} />
-                  
-                  {/* AI Modules */}
-                  <Route path="/playground" element={<AIPlayground />} />
-                  <Route path="/object-detection" element={<PlaceholderPage title="Object Detection" />} />
-                  <Route path="/image-classification" element={<PlaceholderPage title="Image Classification" />} />
-                  <Route path="/ocr" element={<PlaceholderPage title="OCR" />} />
-                  <Route path="/face-analysis" element={<PlaceholderPage title="Face Analysis" />} />
-                  <Route path="/pose-detection" element={<PlaceholderPage title="Pose Detection" />} />
-                  <Route path="/image-segmentation" element={<PlaceholderPage title="Image Segmentation" />} />
-                  <Route path="/depth-estimation" element={<PlaceholderPage title="Depth Estimation" />} />
-                  <Route path="/super-resolution" element={<PlaceholderPage title="Super Resolution" />} />
-                  <Route path="/audio-ai" element={<PlaceholderPage title="Audio AI" />} />
-                  <Route path="/semantic-search" element={<PlaceholderPage title="Semantic Search" />} />
-                  <Route path="/ai-chat" element={<PlaceholderPage title="AI Chat" />} />
-                  
-                  {/* Management */}
-                  <Route path="/models" element={<ModelManager />} />
-                  <Route path="/models/:modelId" element={<PlaceholderPage title="Model Details" />} />
-                  <Route path="/benchmark" element={<PlaceholderPage title="Benchmark Center" />} />
-                  <Route path="/datasets" element={<PlaceholderPage title="Dataset Explorer" />} />
-                  <Route path="/pipeline-builder" element={<PlaceholderPage title="Pipeline Builder" />} />
-                  <Route path="/developer" element={<PlaceholderPage title="Developer Studio" />} />
-                  <Route path="/batch-processing" element={<PlaceholderPage title="Batch Processing" />} />
-                  <Route path="/storage" element={<PlaceholderPage title="Storage Manager" />} />
-                  
-                  {/* Settings */}
-                  <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
-                  
-                  {/* 404 */}
-                  <Route path="/404" element={<NotFound />} />
-                  <Route path="*" element={<Navigate to="/404" replace />} />
-                </Routes>
-              </motion.div>
+              <Routes key={location.pathname}>
+                {/* Dashboard */}
+                <Route path="/" element={
+                  <PageWrapper>
+                    <Dashboard />
+                  </PageWrapper>
+                } />
+                
+                {/* Model Management */}
+                <Route path="/models" element={
+                  <PageWrapper>
+                    <ModelManager />
+                  </PageWrapper>
+                } />
+                <Route path="/models/:id" element={
+                  <PageWrapper>
+                    <ModelDetail />
+                  </PageWrapper>
+                } />
+                
+                {/* AI Playground */}
+                <Route path="/playground" element={
+                  <PageWrapper>
+                    <AIPlayground />
+                  </PageWrapper>
+                } />
+                
+                {/* Vision Modules */}
+                <Route path="/object-detection" element={
+                  <PageWrapper>
+                    <ObjectDetection />
+                  </PageWrapper>
+                } />
+                <Route path="/image-classification" element={
+                  <PageWrapper>
+                    <ImageClassification />
+                  </PageWrapper>
+                } />
+                <Route path="/ocr" element={
+                  <PageWrapper>
+                    <OCR />
+                  </PageWrapper>
+                } />
+                <Route path="/face-analysis" element={
+                  <PageWrapper>
+                    <FaceAnalysis />
+                  </PageWrapper>
+                } />
+                <Route path="/pose-detection" element={
+                  <PageWrapper>
+                    <PoseDetection />
+                  </PageWrapper>
+                } />
+                <Route path="/image-segmentation" element={
+                  <PageWrapper>
+                    <ImageSegmentation />
+                  </PageWrapper>
+                } />
+                <Route path="/depth-estimation" element={
+                  <PageWrapper>
+                    <DepthEstimation />
+                  </PageWrapper>
+                } />
+                <Route path="/super-resolution" element={
+                  <PageWrapper>
+                    <SuperResolution />
+                  </PageWrapper>
+                } />
+                
+                {/* Audio Modules */}
+                <Route path="/audio-ai" element={
+                  <PageWrapper>
+                    <AudioAI />
+                  </PageWrapper>
+                } />
+                
+                {/* NLP Modules */}
+                <Route path="/semantic-search" element={
+                  <PageWrapper>
+                    <SemanticSearch />
+                  </PageWrapper>
+                } />
+                <Route path="/ai-chat" element={
+                  <PageWrapper>
+                    <AIChat />
+                  </PageWrapper>
+                } />
+                
+                {/* Tools */}
+                <Route path="/benchmark" element={
+                  <PageWrapper>
+                    <BenchmarkCenter />
+                  </PageWrapper>
+                } />
+                <Route path="/dataset-explorer" element={
+                  <PageWrapper>
+                    <DatasetExplorer />
+                  </PageWrapper>
+                } />
+                <Route path="/pipeline-builder" element={
+                  <PageWrapper>
+                    <PipelineBuilder />
+                  </PageWrapper>
+                } />
+                <Route path="/developer-studio" element={
+                  <PageWrapper>
+                    <DeveloperStudio />
+                  </PageWrapper>
+                } />
+                <Route path="/batch-processing" element={
+                  <PageWrapper>
+                    <BatchProcessing />
+                  </PageWrapper>
+                } />
+                <Route path="/storage-manager" element={
+                  <PageWrapper>
+                    <StorageManager />
+                  </PageWrapper>
+                } />
+                
+                {/* Settings */}
+                <Route path="/settings" element={
+                  <PageWrapper>
+                    <Settings />
+                  </PageWrapper>
+                } />
+                
+                {/* 404 - Not Found */}
+                <Route path="*" element={
+                  <PageWrapper>
+                    <NotFound />
+                  </PageWrapper>
+                } />
+              </Routes>
             </AnimatePresence>
           </main>
         </div>
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
 
 export default App;
-
-// Import stores for initialization
-import { useAIStore } from '../stores/aiStore';
-import { useModelStore } from '../stores/modelStore';

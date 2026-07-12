@@ -1,7 +1,7 @@
+// Export all page components
 export { Dashboard } from './Dashboard';
 export { ModelManager } from './ModelManager';
 export { AIPlayground } from './AIPlayground';
-export { NotFound } from './NotFound';
 export { ObjectDetection } from './ObjectDetection';
 export { ImageClassification } from './ImageClassification';
 export { OCR } from './OCR';
@@ -21,3 +21,4 @@ export { BatchProcessing } from './BatchProcessing';
 export { StorageManager } from './StorageManager';
 export { Settings } from './Settings';
 export { ModelDetail } from './ModelDetail';
+export { NotFound } from './NotFound';
