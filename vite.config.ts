@@ -46,7 +46,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@litertjs\/core\/.*/,
+            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@litertjs\/core\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'litert-wasm-cache',
@@ -57,7 +57,7 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /\.tflite$/,
+            urlPattern: /\.tflite$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'model-cache',
